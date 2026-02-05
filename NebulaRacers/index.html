@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nebula Racers: Time Trials</title>
-    <!-- Use standard Tailwind script -->
+    <title>Nebula Racers: Classroom Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap');
@@ -93,6 +92,12 @@
     <div id="app" class="h-screen w-screen flex flex-col">
         <div class="space-bg" id="stars"></div>
 
+        <!-- Connection Overlay -->
+        <div id="connection-overlay" class="fixed inset-0 bg-slate-950 z-[100] flex flex-col items-center justify-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-500 mb-4"></div>
+            <p class="text-cyan-500 font-mono tracking-widest animate-pulse">ESTABLISHING SATELLITE LINK...</p>
+        </div>
+
         <!-- Lobby Screen -->
         <div id="screen-lobby" class="flex-grow flex flex-col items-center justify-center p-4">
             <div class="glass p-8 rounded-3xl w-full max-w-5xl text-center grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -127,8 +132,9 @@
 
                     <div id="lobby-wait" class="hidden mt-8 space-y-6">
                         <div id="player-list" class="flex flex-wrap gap-3 mb-6"></div>
-                        <div id="host-controls" class="hidden">
+                        <div id="host-controls" class="hidden space-y-2">
                             <button id="btn-start" class="w-full py-4 bg-purple-600 hover:bg-purple-500 rounded-xl font-bold text-xl text-white">LAUNCH SQUADRON</button>
+                            <button id="btn-reset" class="w-full py-2 bg-slate-800 hover:bg-red-900/50 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition-colors">RESET CLASSROOM LOBBY</button>
                         </div>
                         <div id="guest-wait">
                             <p class="animate-pulse text-slate-400 font-mono italic">Awaiting Squadron Leader...</p>
@@ -140,7 +146,7 @@
                 <div class="text-left border-l border-slate-700 pl-0 lg:pl-8">
                     <h2 class="text-xl font-bold mb-4 text-yellow-500">GALACTIC HALL OF FAME</h2>
                     <div id="global-leaderboard" class="space-y-2 max-h-[400px] overflow-y-auto pr-2">
-                        <p class="text-slate-500 text-sm">Initializing communication with deep space...</p>
+                        <p class="text-slate-500 text-sm">Scanning space-time for records...</p>
                     </div>
                 </div>
             </div>
@@ -185,7 +191,7 @@
             <div class="glass p-10 rounded-3xl w-full max-w-2xl text-center">
                 <h1 class="text-4xl font-bold mb-8 text-yellow-400">MISSION DEBRIEF</h1>
                 <div id="rankings" class="space-y-4 mb-8"></div>
-                <button onclick="location.reload()" class="px-10 py-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold">RE-ENTRY</button>
+                <button onclick="location.reload()" class="px-10 py-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold text-white transition-all">RE-ENTRY</button>
             </div>
         </div>
     </div>
@@ -193,9 +199,9 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, updateDoc, getDocs, onSnapshot, collection, query, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, updateDoc, getDocs, onSnapshot, collection, query, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- QUESTION DATABASE ---
+        // --- QUESTIONS ---
         const QUESTIONS_DB = {
             Math: [
                 { q: "What is 12 x 12?", a: ["122", "144", "164", "148"], c: 1 },
@@ -259,16 +265,13 @@
             ]
         };
 
-        // --- FIREBASE CONFIG & INIT ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nebula-racers-v5';
+        // --- FIREBASE CONFIG ---
+        const appId = 'global-nebula-classroom-v1'; // FIXED ID for classroom sync
         let db, auth;
 
-        // Exponential backoff helper for auth/init
         async function withRetry(fn, retries = 5) {
             for (let i = 0; i < retries; i++) {
-                try {
-                    return await fn();
-                } catch (err) {
+                try { return await fn(); } catch (err) {
                     if (i === retries - 1) throw err;
                     await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
                 }
@@ -284,11 +287,9 @@
         let startTime = null;
         let raceClock = null;
 
-        // --- UTILS ---
         const getPublicDataDoc = (coll, id) => doc(db, 'artifacts', appId, 'public', 'data', coll, id);
         const getPublicDataColl = (coll) => collection(db, 'artifacts', appId, 'public', 'data', coll);
 
-        // --- GLOBALIZED FUNCTIONS FOR HTML ---
         window.selectSubject = (s) => {
             selectedSubject = s;
             document.querySelectorAll('.subject-card').forEach(c => {
@@ -297,76 +298,76 @@
             });
         };
 
-        // Attach listeners manually instead of onclick to avoid module isolation issues
-        document.querySelectorAll('.subject-card').forEach(card => {
-            card.addEventListener('click', () => window.selectSubject(card.dataset.subj));
-        });
-
         const init = async () => {
-            // Check if firebase config exists before trying to initialize
-            if (typeof __firebase_config === 'undefined' || !__firebase_config) {
-                console.log("Firebase config not available yet...");
-                return;
-            }
+            // Wait for configuration to be available
+            const checkConfig = setInterval(async () => {
+                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                    clearInterval(checkConfig);
+                    const config = JSON.parse(__firebase_config);
+                    const app = initializeApp(config);
+                    auth = getAuth(app);
+                    db = getFirestore(app);
 
-            const firebaseConfig = JSON.parse(__firebase_config);
-            const firebaseApp = initializeApp(firebaseConfig);
-            auth = getAuth(firebaseApp);
-            db = getFirestore(firebaseApp);
-
-            await withRetry(async () => {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
+                    try {
+                        await withRetry(async () => {
+                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                                await signInWithCustomToken(auth, __initial_auth_token);
+                            } else {
+                                await signInAnonymously(auth);
+                            }
+                        });
+                        
+                        onAuthStateChanged(auth, u => {
+                            if (u) {
+                                user = u;
+                                myData.uid = u.uid;
+                                document.getElementById('connection-overlay').style.display = 'none';
+                                setupListeners();
+                            }
+                        });
+                    } catch (e) {
+                        console.error("Auth failed", e);
+                    }
                 }
-            });
-
-            onAuthStateChanged(auth, u => {
-                if (u) {
-                    user = u;
-                    myData.uid = u.uid;
-                    listenToGame();
-                    listenToPlayers();
-                    listenToLeaderboard();
-                }
-            });
+            }, 500);
         };
 
-        const listenToGame = () => {
+        const setupListeners = () => {
+            // Game State
             onSnapshot(getPublicDataDoc('sessions', 'game'), (snap) => {
-                if (!snap.exists()) return;
+                if (!snap.exists()) {
+                    if (myData.isHost) resetGameData(); // Initial seed
+                    return;
+                }
                 const data = snap.data();
                 const prevStatus = gameState.status;
                 gameState = data;
                 activeQuestions = gameState.questions;
+                
                 if (prevStatus === 'lobby' && gameState.status === 'racing') startRace();
                 if (gameState.lastRacerCountdown) handleFinalCountdown();
                 if (gameState.status === 'finished') showFinalResults();
-            }, (err) => {
-                // Silent failure or handle error UI if needed
-            });
-        };
+            }, (err) => {});
 
-        const listenToPlayers = () => {
+            // Players
             onSnapshot(getPublicDataColl('players'), (snap) => {
                 const players = [];
                 snap.forEach(d => players.push(d.data()));
                 updateLobby(players);
                 if (gameState.status === 'racing') updateTrack(players);
                 
+                // Host logic for 30s timer
                 if (gameState.status === 'racing' && myData.isHost) {
-                    const activeCount = players.filter(p => !p.finished).length;
-                    if (activeCount === 1 && players.length > 1 && !gameState.lastRacerCountdown) {
+                    const finishers = players.filter(p => p.finished).length;
+                    if (finishers > 0 && players.length > 1 && !gameState.lastRacerCountdown) {
                         updateDoc(getPublicDataDoc('sessions', 'game'), { 
                             lastRacerCountdown: Date.now() + 30000 
                         });
                     }
                 }
             }, (err) => {});
-        };
 
-        const listenToLeaderboard = () => {
+            // Leaderboard
             onSnapshot(getPublicDataColl('leaderboard'), (snap) => {
                 const list = [];
                 snap.forEach(d => list.push(d.data()));
@@ -380,8 +381,18 @@
                             <span class="font-mono text-cyan-400 font-bold">${r.time}</span>
                         </div>
                     </div>
-                `).join('') || '<p class="text-slate-500 text-sm italic">Deep space scans show no records. Be the first.</p>';
+                `).join('') || '<p class="text-slate-500 text-sm italic text-center p-4">HALL OF FAME EMPTY.<br>AWAITING FIRST CHAMPION.</p>';
             }, (err) => {});
+        };
+
+        const resetGameData = async () => {
+            if (!user) return;
+            await setDoc(getPublicDataDoc('sessions', 'game'), {
+                status: 'lobby',
+                subject: 'Math',
+                questions: [],
+                lastRacerCountdown: null
+            });
         };
 
         const updateLobby = (players) => {
@@ -397,6 +408,10 @@
                 myData.isHost = true;
                 document.getElementById('host-controls').classList.remove('hidden');
                 document.getElementById('guest-wait').classList.add('hidden');
+            } else {
+                myData.isHost = false;
+                document.getElementById('host-controls').classList.add('hidden');
+                document.getElementById('guest-wait').classList.remove('hidden');
             }
         };
 
@@ -566,6 +581,7 @@
             `).join('');
         };
 
+        // --- BUTTONS ---
         document.getElementById('btn-join').onclick = async () => {
             if (!user) return;
             myData.tag = document.getElementById('player-tag').value.toUpperCase().slice(0,3) || 'ACE';
@@ -589,10 +605,25 @@
             });
         };
 
-        // Initialize on load
+        document.getElementById('btn-reset').onclick = async () => {
+            if (!user || !confirm("Clear all racers and reset the classroom?")) return;
+            const snap = await getDocs(getPublicDataColl('players'));
+            const deletions = [];
+            snap.forEach(d => deletions.push(deleteDoc(getPublicDataDoc('players', d.id))));
+            await Promise.all(deletions);
+            await resetGameData();
+            location.reload();
+        };
+
+        // Subjects
+        document.querySelectorAll('.subject-card').forEach(card => {
+            card.addEventListener('click', () => window.selectSubject(card.dataset.subj));
+        });
+
+        // Initialize
         window.onload = init;
 
-        // Background stars
+        // Background
         const starsBox = document.getElementById('stars');
         for (let i = 0; i < 150; i++) {
             const s = document.createElement('div');
