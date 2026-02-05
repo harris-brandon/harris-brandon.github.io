@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nebula Racers: Classroom Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap');
 
@@ -238,8 +237,8 @@
                     </div>
                     <div class="text-center">
                         <p class="text-[10px] text-slate-400 uppercase font-bold mb-2">Scan to Join</p>
-                        <div class="qr-container inline-block">
-                            <canvas id="host-qr-code"></canvas>
+                        <div class="qr-container inline-block bg-white p-2 rounded-lg">
+                            <img id="host-qr-code" width="120" height="120" alt="QR Code" />
                         </div>
                     </div>
                 </div>
@@ -873,15 +872,10 @@
         };
 
         const generateQRCode = (url) => {
-            const canvas = document.getElementById('host-qr-code');
-            if (canvas && typeof QRCode !== 'undefined') {
-                QRCode.toCanvas(canvas, url, {
-                    width: 120,
-                    margin: 1,
-                    color: { dark: '#020617', light: '#ffffff' }
-                }, (error) => {
-                    if (error) console.error('QR Code error:', error);
-                });
+            const img = document.getElementById('host-qr-code');
+            if (img) {
+                const encodedUrl = encodeURIComponent(url);
+                img.src = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodedUrl}`;
             }
         };
 
