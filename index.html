@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Class Webapps</title>
+  <style>
+    :root {
+      --bg: #0b0c10;
+      --card: #14161f;
+      --text: #e8eaf0;
+      --muted: #a9afc3;
+      --border: rgba(255,255,255,.12);
+      --link: #8ab4ff;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(900px 500px at 20% 0%, #1a1f38 0%, var(--bg) 55%),
+                  radial-gradient(900px 500px at 80% 0%, #2a1a2b 0%, transparent 55%),
+                  var(--bg);
+      color: var(--text);
+    }
+
+    header {
+      padding: 40px 18px 10px;
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(1.6rem, 2.5vw, 2.2rem);
+      letter-spacing: .2px;
+    }
+
+    p {
+      margin: 0 0 16px;
+      color: var(--muted);
+      line-height: 1.45;
+      max-width: 70ch;
+    }
+
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      margin: 14px 0 18px;
+    }
+
+    .search {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(20,22,31,.8);
+      color: var(--text);
+      outline: none;
+    }
+    .search::placeholder { color: rgba(169,175,195,.75); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(20,22,31,.8);
+      color: var(--text);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .btn:hover { border-color: rgba(255,255,255,.22); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+      margin: 8px 0 34px;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      background: rgba(20,22,31,.85);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+      transition: transform .12s ease, border-color .12s ease;
+    }
+    .card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.22); }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .card h2 {
+      margin: 0;
+      font-size: 1.05rem;
+    }
+
+    .tag {
+      font-size: .78rem;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 4px 8px;
+      border-radius: 999px;
+      flex: 0 0 auto;
+    }
+
+    .desc { margin: 0 0 12px; color: var(--muted); min-height: 2.6em; }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+
+    a.launch {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(138,180,255,.35);
+      background: rgba(138,180,255,.12);
+      color: var(--text);
+      text-decoration: none;
+    }
+    a.launch:hover { border-color: rgba(138,180,255,.6); }
+
+    button.copy {
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    button.copy:hover { border-color: rgba(255,255,255,.22); color: var(--text); }
+
+    footer {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 0 18px 34px;
+      color: var(--muted);
+      font-size: .92rem;
+    }
+
+    .hidden { display: none !important; }
+
+    /* small screens */
+    @media (max-width: 520px) {
+      .toolbar { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Class Webapps</h1>
+    <p>
+      Share a tool by copying its link into Google Classroom.
+      Each item below expects a folder like <code>games/name/index.html</code>.
+    </p>
+  </header>
+
+  <main>
+    <div class="toolbar">
+      <input id="search" class="search" type="search" placeholder="Search apps…" autocomplete="off" />
+      <button id="copySite" class="btn" type="button" title="Copy this homepage link">Copy homepage link</button>
+    </div>
+
+    <div id="grid" class="grid">
+      <!--
+        HOW TO ADD A GAME:
+        1) Create a folder: /games/my-game/
+        2) Put your game entry file at: /games/my-game/index.html
+        3) Duplicate one of the cards below and change:
+           data-name, title, description, href
+      -->
+
+      <article class="card" data-name="Vocab Quiz" data-tags="quiz vocab language arts">
+        <div class="title-row">
+          <h2>Vocab Quiz</h2>
+          <span class="tag">Quiz</span>
+        </div>
+        <p class="desc">Practice key terms with a quick interactive quiz.</p>
+        <div class="actions">
+          <a class="launch" href="./games/vocab-quiz/" target="_blank" rel="noopener">Open ↗</a>
+          <button class="copy" type="button" data-copy="./games/vocab-quiz/">Copy link</button>
+        </div>
+      </article>
+
+      <article class="card" data-name="Fraction Blaster" data-tags="math fractions game">
+        <div class="title-row">
+          <h2>Fraction Blaster</h2>
+          <span class="tag">Math</span>
+        </div>
+        <p class="desc">Fractions practice game with instant feedback.</p>
+        <div class="actions">
+          <a class="launch" href="./games/fraction-blaster/" target="_blank" rel="noopener">Open ↗</a>
+          <button class="copy" type="button" data-copy="./games/fraction-blaster/">Copy link</button>
+        </div>
+      </article>
+
+      <article class="card" data-name="Typing Sprint" data-tags="typing practice speed">
+        <div class="title-row">
+          <h2>Typing Sprint</h2>
+          <span class="tag">Practice</span>
+        </div>
+        <p class="desc">Short timed typing challenges for warm-ups.</p>
+        <div class="actions">
+          <a class="launch" href="./games/typing-sprint/" target="_blank" rel="noopener">Open ↗</a>
+          <button class="copy" type="button" data-copy="./games/typing-sprint/">Copy link</button>
+        </div>
+      </article>
+    </div>
+
+    <div id="empty" class="hidden" style="color: var(--muted);">
+      No matches. Try a different search.
+    </div>
+  </main>
+
+  <footer>
+    Tip: For project pages (not <code>YOURUSERNAME.github.io</code>), avoid leading slashes in file paths inside your games.
+    Use <code>./script.js</code> instead of <code>/script.js</code>.
+  </footer>
+
+  <script>
+    const searchInput = document.getElementById('search');
+    const cards = Array.from(document.querySelectorAll('.card'));
+    const empty = document.getElementById('empty');
+
+    function normalize(s) { return (s || '').toLowerCase().trim(); }
+
+    function applyFilter() {
+      const q = normalize(searchInput.value);
+      let visible = 0;
+
+      for (const card of cards) {
+        const name = normalize(card.dataset.name);
+        const tags = normalize(card.dataset.tags || '');
+        const text = name + ' ' + tags;
+        const show = !q || text.includes(q);
+        card.classList.toggle('hidden', !show);
+        if (show) visible++;
+      }
+
+      empty.classList.toggle('hidden', visible !== 0);
+    }
+
+    async function copyText(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        // Fallback for older environments
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      }
+    }
+
+    function absolutize(relativePath) {
+      // Convert "./games/x/" into a full URL based on current page
+      return new URL(relativePath, window.location.href).toString();
+    }
+
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button.copy');
+      if (!btn) return;
+
+      const rel = btn.getAttribute('data-copy');
+      const url = absolutize(rel);
+
+      const ok = await copyText(url);
+      btn.textContent = ok ? 'Copied' : 'Copy failed';
+      setTimeout(() => (btn.textContent = 'Copy link'), 900);
+    });
+
+    document.getElementById('copySite').addEventListener('click', async (e) => {
+      const url = window.location.href;
+      const ok = await copyText(url);
+      const btn = e.currentTarget;
+      btn.textContent = ok ? 'Copied' : 'Copy failed';
+      setTimeout(() => (btn.textContent = 'Copy homepage link'), 900);
+    });
+
+    searchInput.addEventListener('input', applyFilter);
+    applyFilter();
+  </script>
+</body>
+</html>
