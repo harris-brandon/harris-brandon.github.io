@@ -95,12 +95,12 @@
         <!-- Connection Overlay -->
         <div id="connection-overlay" class="fixed inset-0 bg-slate-950 z-[100] flex flex-col items-center justify-center">
             <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-500 mb-4"></div>
-            <p class="text-cyan-500 font-mono tracking-widest animate-pulse">ESTABLISHING SATELLITE LINK...</p>
+            <p class="text-cyan-500 font-mono tracking-widest animate-pulse">ESTABLISHING CLASSROOM LINK...</p>
         </div>
 
         <!-- Lobby Screen -->
         <div id="screen-lobby" class="flex-grow flex flex-col items-center justify-center p-4">
-            <div class="glass p-8 rounded-3xl w-full max-w-5xl text-center grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="glass p-8 rounded-3xl w-full max-w-5xl text-center grid grid-cols-1 lg:grid-cols-2 gap-8 shadow-2xl">
                 <div>
                     <h1 class="text-4xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500 text-left">NEBULA RACERS</h1>
                     
@@ -108,7 +108,7 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-2">
                                 <label class="text-[10px] text-slate-400 uppercase font-bold">Pilot Tag (3 Char)</label>
-                                <input type="text" id="player-tag" maxlength="3" value="ACE" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl font-mono text-center uppercase text-white">
+                                <input type="text" id="player-tag" maxlength="3" value="ACE" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl font-mono text-center uppercase text-white outline-none focus:border-cyan-500">
                             </div>
                             <div class="space-y-2">
                                 <label class="text-[10px] text-slate-400 uppercase font-bold">Hull Color</label>
@@ -119,25 +119,28 @@
                         <div class="space-y-3">
                             <label class="text-[10px] text-slate-400 uppercase font-bold">Mission Subject</label>
                             <div id="subject-list" class="grid grid-cols-3 gap-2">
-                                <div class="subject-card glass p-2 rounded-lg text-xs selected" data-subj="Math">Math</div>
-                                <div class="subject-card glass p-2 rounded-lg text-xs" data-subj="Science">Science</div>
-                                <div class="subject-card glass p-2 rounded-lg text-xs" data-subj="History">History</div>
-                                <div class="subject-card glass p-2 rounded-lg text-xs" data-subj="Literature">Literature</div>
-                                <div class="subject-card glass p-2 rounded-lg text-xs" data-subj="Pop Culture">Pop Culture</div>
+                                <div class="subject-card glass p-2 rounded-lg text-xs selected" onclick="selectSubject('Math')" data-subj="Math">Math</div>
+                                <div class="subject-card glass p-2 rounded-lg text-xs" onclick="selectSubject('Science')" data-subj="Science">Science</div>
+                                <div class="subject-card glass p-2 rounded-lg text-xs" onclick="selectSubject('History')" data-subj="History">History</div>
+                                <div class="subject-card glass p-2 rounded-lg text-xs" onclick="selectSubject('Literature')" data-subj="Literature">Literature</div>
+                                <div class="subject-card glass p-2 rounded-lg text-xs" onclick="selectSubject('Pop Culture')" data-subj="Pop Culture">Pop Culture</div>
                             </div>
                         </div>
 
-                        <button id="btn-join" class="w-full py-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold text-xl transition-all shadow-lg text-white">READY TO RACE</button>
+                        <button id="btn-join" class="w-full py-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold text-xl transition-all shadow-lg text-white">ENTER HANGAR</button>
                     </div>
 
                     <div id="lobby-wait" class="hidden mt-8 space-y-6">
-                        <div id="player-list" class="flex flex-wrap gap-3 mb-6"></div>
+                        <div class="bg-cyan-500/10 border border-cyan-500/20 p-4 rounded-xl text-left">
+                            <p class="text-[10px] text-cyan-400 font-bold uppercase mb-2">Connected Pilots</p>
+                            <div id="player-list" class="flex flex-wrap gap-2"></div>
+                        </div>
                         <div id="host-controls" class="hidden space-y-2">
-                            <button id="btn-start" class="w-full py-4 bg-purple-600 hover:bg-purple-500 rounded-xl font-bold text-xl text-white">LAUNCH SQUADRON</button>
-                            <button id="btn-reset" class="w-full py-2 bg-slate-800 hover:bg-red-900/50 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition-colors">RESET CLASSROOM LOBBY</button>
+                            <button id="btn-start" class="w-full py-4 bg-purple-600 hover:bg-purple-500 rounded-xl font-bold text-xl text-white shadow-xl">LAUNCH SQUADRON</button>
+                            <button id="btn-reset" class="w-full py-2 bg-slate-800 hover:bg-red-900/50 rounded-lg text-xs font-bold text-slate-500 hover:text-white transition-colors">RESET CLASSROOM DATA</button>
                         </div>
                         <div id="guest-wait">
-                            <p class="animate-pulse text-slate-400 font-mono italic">Awaiting Squadron Leader...</p>
+                            <p class="animate-pulse text-cyan-400 font-mono italic">Awaiting Squadron Leader to Launch...</p>
                         </div>
                     </div>
                 </div>
@@ -145,8 +148,8 @@
                 <!-- Leaderboard Section -->
                 <div class="text-left border-l border-slate-700 pl-0 lg:pl-8">
                     <h2 class="text-xl font-bold mb-4 text-yellow-500">GALACTIC HALL OF FAME</h2>
-                    <div id="global-leaderboard" class="space-y-2 max-h-[400px] overflow-y-auto pr-2">
-                        <p class="text-slate-500 text-sm">Scanning space-time for records...</p>
+                    <div id="global-leaderboard" class="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                        <p class="text-slate-500 text-sm italic">Scanning records...</p>
                     </div>
                 </div>
             </div>
@@ -188,7 +191,7 @@
 
         <!-- Results Screen -->
         <div id="screen-results" class="hidden flex-grow flex flex-col items-center justify-center p-4">
-            <div class="glass p-10 rounded-3xl w-full max-w-2xl text-center">
+            <div class="glass p-10 rounded-3xl w-full max-w-2xl text-center shadow-2xl">
                 <h1 class="text-4xl font-bold mb-8 text-yellow-400">MISSION DEBRIEF</h1>
                 <div id="rankings" class="space-y-4 mb-8"></div>
                 <button onclick="location.reload()" class="px-10 py-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold text-white transition-all">RE-ENTRY</button>
@@ -199,9 +202,8 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, updateDoc, getDocs, onSnapshot, collection, query, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, updateDoc, getDocs, onSnapshot, collection, query, addDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- QUESTIONS ---
         const QUESTIONS_DB = {
             Math: [
                 { q: "What is 12 x 12?", a: ["122", "144", "164", "148"], c: 1 },
@@ -265,28 +267,18 @@
             ]
         };
 
-        // --- FIREBASE CONFIG ---
-        const appId = 'global-nebula-classroom-v1'; // FIXED ID for classroom sync
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nebula-racers-v1';
         let db, auth;
 
-        async function withRetry(fn, retries = 5) {
-            for (let i = 0; i < retries; i++) {
-                try { return await fn(); } catch (err) {
-                    if (i === retries - 1) throw err;
-                    await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
-                }
-            }
-        }
-
-        // --- STATE ---
         let user = null;
         let selectedSubject = 'Math';
-        let myData = { uid: '', tag: 'ACE', color: '#3b82f6', progress: 0, qIdx: 0, finished: false, time: null };
+        let myData = { uid: '', tag: 'ACE', color: '#3b82f6', progress: 0, qIdx: 0, finished: false, time: null, isHost: false };
         let gameState = { status: 'lobby', subject: 'Math', questions: [], lastRacerCountdown: null };
         let activeQuestions = [];
         let startTime = null;
         let raceClock = null;
 
+        // Path Helpers
         const getPublicDataDoc = (coll, id) => doc(db, 'artifacts', appId, 'public', 'data', coll, id);
         const getPublicDataColl = (coll) => collection(db, 'artifacts', appId, 'public', 'data', coll);
 
@@ -299,46 +291,49 @@
         };
 
         const init = async () => {
-            // Wait for configuration to be available
-            const checkConfig = setInterval(async () => {
+            const configWait = setInterval(async () => {
                 if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-                    clearInterval(checkConfig);
+                    clearInterval(configWait);
                     const config = JSON.parse(__firebase_config);
                     const app = initializeApp(config);
                     auth = getAuth(app);
                     db = getFirestore(app);
 
                     try {
-                        await withRetry(async () => {
-                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                                await signInWithCustomToken(auth, __initial_auth_token);
-                            } else {
-                                await signInAnonymously(auth);
-                            }
-                        });
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
                         
-                        onAuthStateChanged(auth, u => {
+                        onAuthStateChanged(auth, async (u) => {
                             if (u) {
                                 user = u;
                                 myData.uid = u.uid;
                                 document.getElementById('connection-overlay').style.display = 'none';
+                                
+                                // FORCE create the game doc if it doesn't exist
+                                const gameDoc = await getDoc(getPublicDataDoc('sessions', 'game'));
+                                if (!gameDoc.exists()) {
+                                    await setDoc(getPublicDataDoc('sessions', 'game'), {
+                                        status: 'lobby',
+                                        subject: 'Math',
+                                        questions: [],
+                                        lastRacerCountdown: null
+                                    });
+                                }
                                 setupListeners();
                             }
                         });
-                    } catch (e) {
-                        console.error("Auth failed", e);
-                    }
+                    } catch (e) { console.error(e); }
                 }
-            }, 500);
+            }, 100);
         };
 
         const setupListeners = () => {
-            // Game State
+            // Listen for global game state
             onSnapshot(getPublicDataDoc('sessions', 'game'), (snap) => {
-                if (!snap.exists()) {
-                    if (myData.isHost) resetGameData(); // Initial seed
-                    return;
-                }
+                if (!snap.exists()) return;
                 const data = snap.data();
                 const prevStatus = gameState.status;
                 gameState = data;
@@ -347,16 +342,16 @@
                 if (prevStatus === 'lobby' && gameState.status === 'racing') startRace();
                 if (gameState.lastRacerCountdown) handleFinalCountdown();
                 if (gameState.status === 'finished') showFinalResults();
-            }, (err) => {});
+            }, (err) => console.log("State Error:", err));
 
-            // Players
+            // Listen for all players in this classroom
             onSnapshot(getPublicDataColl('players'), (snap) => {
                 const players = [];
                 snap.forEach(d => players.push(d.data()));
                 updateLobby(players);
                 if (gameState.status === 'racing') updateTrack(players);
                 
-                // Host logic for 30s timer
+                // Host logic for 30s finish timer
                 if (gameState.status === 'racing' && myData.isHost) {
                     const finishers = players.filter(p => p.finished).length;
                     if (finishers > 0 && players.length > 1 && !gameState.lastRacerCountdown) {
@@ -365,44 +360,35 @@
                         });
                     }
                 }
-            }, (err) => {});
+            }, (err) => console.log("Player Error:", err));
 
-            // Leaderboard
+            // Leaderboard listener
             onSnapshot(getPublicDataColl('leaderboard'), (snap) => {
                 const list = [];
                 snap.forEach(d => list.push(d.data()));
-                const sorted = list.sort((a,b) => parseTime(a.time) - parseTime(b.time)).slice(0, 10);
+                const sorted = list.sort((a,b) => parseTime(a.time) - parseTime(b.time)).slice(0, 15);
                 const container = document.getElementById('global-leaderboard');
                 container.innerHTML = sorted.map((r, i) => `
-                    <div class="flex justify-between p-2 glass rounded-lg border-l-2" style="border-color: ${r.color}">
-                        <span class="font-bold text-slate-300">#${i+1} ${r.tag}</span>
+                    <div class="flex justify-between p-2 glass rounded-lg border-l-2 mb-1" style="border-color: ${r.color}">
+                        <span class="font-bold text-slate-300 text-xs">#${i+1} ${r.tag}</span>
                         <div class="flex gap-4">
-                            <span class="text-xs text-slate-500 uppercase">${r.subject}</span>
-                            <span class="font-mono text-cyan-400 font-bold">${r.time}</span>
+                            <span class="text-[9px] text-slate-500 uppercase">${r.subject}</span>
+                            <span class="font-mono text-cyan-400 font-bold text-xs">${r.time}</span>
                         </div>
                     </div>
-                `).join('') || '<p class="text-slate-500 text-sm italic text-center p-4">HALL OF FAME EMPTY.<br>AWAITING FIRST CHAMPION.</p>';
-            }, (err) => {});
-        };
-
-        const resetGameData = async () => {
-            if (!user) return;
-            await setDoc(getPublicDataDoc('sessions', 'game'), {
-                status: 'lobby',
-                subject: 'Math',
-                questions: [],
-                lastRacerCountdown: null
+                `).join('') || '<p class="text-slate-500 text-sm italic text-center p-4">HALL OF FAME EMPTY.</p>';
             });
         };
 
         const updateLobby = (players) => {
             const list = document.getElementById('player-list');
             list.innerHTML = players.map(p => `
-                <div class="glass px-4 py-2 rounded-xl border-l-4" style="border-color: ${p.color}">
-                    <span class="font-bold">PILOT ${p.tag}</span>
+                <div class="glass px-3 py-1.5 rounded-lg border-l-4 text-xs font-bold" style="border-color: ${p.color}">
+                    ${p.tag}
                 </div>
             `).join('');
 
+            // Identify the Host (oldest player in the lobby)
             const sorted = players.sort((a,b) => (a.joinedAt || 0) - (b.joinedAt || 0));
             if (sorted[0]?.uid === user.uid) {
                 myData.isHost = true;
@@ -417,7 +403,8 @@
 
         const updateTrack = (players) => {
             const track = document.getElementById('track');
-            if (track.children.length !== players.length + 1) {
+            // Re-render lanes if player count changes
+            if (track.querySelectorAll('.track-lane').length !== players.length) {
                 track.innerHTML = '<div class="finish-line"></div>';
                 players.sort((a,b) => a.uid.localeCompare(b.uid)).forEach(p => {
                     const lane = document.createElement('div');
@@ -446,11 +433,11 @@
 
                 ship.innerHTML = `
                     <div class="flex items-center gap-2 ${glow}">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="${fill}" style="transform: rotate(90deg)">
+                        <svg width="34" height="34" viewBox="0 0 24 24" fill="${fill}" style="transform: rotate(90deg)">
                             <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71L12 2z"/>
                         </svg>
-                        <div class="flex flex-col">
-                            <span class="text-[9px] font-bold" style="color: ${p.color}">${p.tag}</span>
+                        <div class="flex flex-col leading-none">
+                            <span class="text-[8px] font-bold" style="color: ${p.color}">${p.tag}</span>
                             ${p.time ? `<span class="text-[8px] font-mono text-green-400 font-bold">${p.time}</span>` : ''}
                         </div>
                     </div>
@@ -489,7 +476,6 @@
         };
 
         const submitAnswer = async (idx) => {
-            if (!user) return;
             const q = activeQuestions[myData.qIdx];
             if (idx === q.c) {
                 myData.qIdx++;
@@ -505,18 +491,21 @@
                         timestamp: Date.now()
                     });
                 }
+                // Save progress to database for everyone to see
                 await updateDoc(getPublicDataDoc('players', user.uid), {
                     progress: myData.progress,
                     qIdx: myData.qIdx,
                     finished: myData.finished,
                     time: myData.time
                 });
+
                 if (myData.finished) {
                     document.getElementById('quiz-ui').innerHTML = `<div class="text-center py-4"><h2 class="text-2xl font-bold text-green-400 uppercase">MISSION SUCCESS</h2><p class="font-mono mt-2 text-white">${myData.time}</p></div>`;
                 } else {
                     loadQuestion();
                 }
             } else {
+                // Wrong Answer Penalty
                 document.getElementById('penalty-ui').classList.remove('hidden');
                 let count = 5.0;
                 const interval = setInterval(() => {
@@ -597,7 +586,7 @@
         document.getElementById('btn-start').onclick = async () => {
             if (!user) return;
             const qPool = QUESTIONS_DB[selectedSubject].sort(() => Math.random() - 0.5);
-            await setDoc(getPublicDataDoc('sessions', 'game'), {
+            await updateDoc(getPublicDataDoc('sessions', 'game'), {
                 status: 'racing',
                 subject: selectedSubject,
                 questions: qPool,
@@ -608,22 +597,20 @@
         document.getElementById('btn-reset').onclick = async () => {
             if (!user || !confirm("Clear all racers and reset the classroom?")) return;
             const snap = await getDocs(getPublicDataColl('players'));
-            const deletions = [];
-            snap.forEach(d => deletions.push(deleteDoc(getPublicDataDoc('players', d.id))));
+            const deletions = snap.docs.map(d => deleteDoc(d.ref));
             await Promise.all(deletions);
-            await resetGameData();
+            await updateDoc(getPublicDataDoc('sessions', 'game'), {
+                status: 'lobby',
+                subject: 'Math',
+                questions: [],
+                lastRacerCountdown: null
+            });
             location.reload();
         };
 
-        // Subjects
-        document.querySelectorAll('.subject-card').forEach(card => {
-            card.addEventListener('click', () => window.selectSubject(card.dataset.subj));
-        });
-
-        // Initialize
         window.onload = init;
 
-        // Background
+        // Background FX
         const starsBox = document.getElementById('stars');
         for (let i = 0; i < 150; i++) {
             const s = document.createElement('div');
