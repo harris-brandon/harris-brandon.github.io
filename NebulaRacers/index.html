@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nebula Racers: Classroom Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap');
 
@@ -133,6 +134,47 @@
             0%, 100% { box-shadow: 0 0 10px rgba(139, 92, 246, 0.5); }
             50% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.8); }
         }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 250px;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .chat-message {
+            padding: 6px 10px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            font-size: 12px;
+        }
+        .chat-message.own {
+            background: rgba(6, 182, 212, 0.2);
+            align-self: flex-end;
+        }
+        .chat-message .author {
+            font-weight: bold;
+            font-size: 10px;
+            margin-bottom: 2px;
+        }
+        .chat-message.system {
+            background: rgba(139, 92, 246, 0.2);
+            text-align: center;
+            font-style: italic;
+            color: #a78bfa;
+        }
+        .qr-container {
+            background: white;
+            padding: 12px;
+            border-radius: 12px;
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
@@ -187,11 +229,19 @@
                     </div>
                 </div>
 
-                <!-- Invite Link -->
-                <div class="mb-6">
-                    <p class="text-[10px] text-slate-400 uppercase font-bold mb-2">Share this link with your class:</p>
-                    <div id="host-invite-link" class="invite-link p-3 rounded-xl font-mono text-sm text-cyan-400 break-all" onclick="copyInviteLink()"></div>
-                    <p id="host-copy-feedback" class="text-xs text-green-400 mt-1 hidden">Copied to clipboard!</p>
+                <!-- Invite Link & QR Code -->
+                <div class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="md:col-span-2">
+                        <p class="text-[10px] text-slate-400 uppercase font-bold mb-2">Share this link with your class:</p>
+                        <div id="host-invite-link" class="invite-link p-3 rounded-xl font-mono text-sm text-cyan-400 break-all" onclick="copyInviteLink()"></div>
+                        <p id="host-copy-feedback" class="text-xs text-green-400 mt-1 hidden">Copied to clipboard!</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-[10px] text-slate-400 uppercase font-bold mb-2">Scan to Join</p>
+                        <div class="qr-container inline-block">
+                            <canvas id="host-qr-code"></canvas>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Quiz Type Toggle -->
@@ -262,14 +312,30 @@
                     </div>
                 </div>
 
-                <!-- Connected Players -->
-                <div class="mt-6 bg-cyan-500/10 border border-cyan-500/20 p-4 rounded-xl">
-                    <div class="flex justify-between items-center mb-2">
-                        <p class="text-[10px] text-cyan-400 font-bold uppercase">Connected Pilots</p>
-                        <span id="host-player-count" class="text-xs text-cyan-400 font-mono">0 players</span>
+                <!-- Connected Players & Chat -->
+                <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="bg-cyan-500/10 border border-cyan-500/20 p-4 rounded-xl">
+                        <div class="flex justify-between items-center mb-2">
+                            <p class="text-[10px] text-cyan-400 font-bold uppercase">Connected Pilots</p>
+                            <span id="host-player-count" class="text-xs text-cyan-400 font-mono">0 players</span>
+                        </div>
+                        <div id="host-player-list" class="flex flex-wrap gap-2 min-h-[40px]">
+                            <p class="text-slate-500 text-xs italic">Waiting for players to join...</p>
+                        </div>
                     </div>
-                    <div id="host-player-list" class="flex flex-wrap gap-2 min-h-[40px]">
-                        <p class="text-slate-500 text-xs italic">Waiting for players to join...</p>
+
+                    <!-- Chat -->
+                    <div class="glass border border-slate-700 rounded-xl overflow-hidden chat-container">
+                        <div class="bg-slate-800/50 px-3 py-2 border-b border-slate-700">
+                            <p class="text-[10px] text-slate-400 font-bold uppercase">Lobby Chat</p>
+                        </div>
+                        <div id="host-chat-messages" class="chat-messages custom-scrollbar">
+                            <div class="chat-message system">Welcome to the lobby!</div>
+                        </div>
+                        <div class="p-2 border-t border-slate-700 flex gap-2">
+                            <input type="text" id="host-chat-input" placeholder="Type a message..." maxlength="200" class="flex-1 bg-slate-900 border border-slate-700 px-3 py-2 rounded-lg text-sm text-white outline-none focus:border-cyan-500">
+                            <button onclick="sendChat('host')" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-xs font-bold text-white">Send</button>
+                        </div>
                     </div>
                 </div>
 
@@ -312,12 +378,27 @@
                     <button id="btn-join-race" class="w-full py-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold text-xl transition-all shadow-lg text-white uppercase">Enter Hangar</button>
                 </div>
 
-                <div id="player-lobby-wait" class="hidden mt-8 space-y-6">
+                <div id="player-lobby-wait" class="hidden mt-8 space-y-4">
                     <div class="bg-cyan-500/10 border border-cyan-500/20 p-4 rounded-xl text-left">
                         <p class="text-[10px] text-cyan-400 font-bold uppercase mb-2">Connected Pilots</p>
                         <div id="player-list" class="flex flex-wrap gap-2"></div>
                     </div>
-                    <p class="animate-pulse text-cyan-400 font-mono italic">Awaiting Host to Launch Race...</p>
+
+                    <!-- Player Chat -->
+                    <div class="glass border border-slate-700 rounded-xl overflow-hidden chat-container text-left">
+                        <div class="bg-slate-800/50 px-3 py-2 border-b border-slate-700">
+                            <p class="text-[10px] text-slate-400 font-bold uppercase">Lobby Chat</p>
+                        </div>
+                        <div id="player-chat-messages" class="chat-messages custom-scrollbar">
+                            <div class="chat-message system">Welcome to the lobby!</div>
+                        </div>
+                        <div class="p-2 border-t border-slate-700 flex gap-2">
+                            <input type="text" id="player-chat-input" placeholder="Type a message..." maxlength="200" class="flex-1 bg-slate-900 border border-slate-700 px-3 py-2 rounded-lg text-sm text-white outline-none focus:border-cyan-500">
+                            <button onclick="sendChat('player')" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-xs font-bold text-white">Send</button>
+                        </div>
+                    </div>
+
+                    <p class="animate-pulse text-cyan-400 font-mono italic text-center">Awaiting Host to Launch Race...</p>
                 </div>
             </div>
         </div>
@@ -367,7 +448,18 @@
             <div class="glass p-10 rounded-3xl w-full max-w-2xl text-center shadow-2xl">
                 <h1 class="text-4xl font-bold mb-8 text-yellow-400">MISSION DEBRIEF</h1>
                 <div id="rankings" class="space-y-4 mb-8"></div>
-                <button onclick="goHome()" class="px-10 py-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold text-white transition-all">BACK TO BASE</button>
+
+                <!-- Host controls -->
+                <div id="results-host-controls" class="hidden space-y-3">
+                    <button onclick="playAgain()" class="w-full px-10 py-4 bg-purple-600 hover:bg-purple-500 rounded-xl font-bold text-white transition-all uppercase">Play Again</button>
+                    <button onclick="goHome()" class="w-full px-10 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl font-bold text-sm text-white transition-all uppercase">End Session</button>
+                </div>
+
+                <!-- Player waiting -->
+                <div id="results-player-wait" class="hidden">
+                    <p class="animate-pulse text-cyan-400 font-mono italic mb-4">Waiting for host to start next race...</p>
+                    <button onclick="goHome()" class="px-10 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl font-bold text-sm text-white transition-all uppercase">Leave Session</button>
+                </div>
             </div>
         </div>
     </div>
@@ -780,6 +872,79 @@
             window.location.href = window.location.origin + window.location.pathname;
         };
 
+        const generateQRCode = (url) => {
+            const canvas = document.getElementById('host-qr-code');
+            if (canvas && typeof QRCode !== 'undefined') {
+                QRCode.toCanvas(canvas, url, {
+                    width: 120,
+                    margin: 1,
+                    color: { dark: '#020617', light: '#ffffff' }
+                }, (error) => {
+                    if (error) console.error('QR Code error:', error);
+                });
+            }
+        };
+
+        window.sendChat = async (source) => {
+            const inputId = source === 'host' ? 'host-chat-input' : 'player-chat-input';
+            const input = document.getElementById(inputId);
+            const message = input.value.trim();
+            if (!message || !roomCode || !user) return;
+
+            input.value = '';
+
+            const chatData = {
+                text: message,
+                uid: user.uid,
+                author: isHost ? 'HOST' : (myData.tag || 'ACE'),
+                color: isHost ? '#a78bfa' : (myData.color || '#3b82f6'),
+                timestamp: Date.now()
+            };
+
+            await addDoc(collection(db, 'games', roomCode, 'chat'), chatData);
+        };
+
+        const setupChatListener = () => {
+            const unsubChat = onSnapshot(
+                collection(db, 'games', roomCode, 'chat'),
+                (snap) => {
+                    const messages = [];
+                    snap.forEach(d => messages.push({ id: d.id, ...d.data() }));
+                    messages.sort((a, b) => a.timestamp - b.timestamp);
+
+                    const hostContainer = document.getElementById('host-chat-messages');
+                    const playerContainer = document.getElementById('player-chat-messages');
+                    const container = isHost ? hostContainer : playerContainer;
+
+                    if (container) {
+                        const systemMsg = '<div class="chat-message system">Welcome to the lobby!</div>';
+                        container.innerHTML = systemMsg + messages.slice(-50).map(m => `
+                            <div class="chat-message ${m.uid === user.uid ? 'own' : ''}">
+                                <div class="author" style="color: ${m.color}">${m.author}</div>
+                                <div>${escapeHtml(m.text)}</div>
+                            </div>
+                        `).join('');
+                        container.scrollTop = container.scrollHeight;
+                    }
+                }
+            );
+            unsubscribers.push(unsubChat);
+        };
+
+        const escapeHtml = (text) => {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        };
+
+        // Enter key to send chat
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') {
+                if (document.activeElement.id === 'host-chat-input') sendChat('host');
+                if (document.activeElement.id === 'player-chat-input') sendChat('player');
+            }
+        });
+
         const showScreen = (screenId) => {
             ['screen-home', 'screen-host-setup', 'screen-lobby', 'screen-race', 'screen-results'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
@@ -858,16 +1023,20 @@
 
             window.history.pushState({}, '', `?room=${roomCode}`);
 
+            const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
             document.getElementById('host-room-code').innerText = roomCode;
-            document.getElementById('host-invite-link').innerText = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
+            document.getElementById('host-invite-link').innerText = inviteUrl;
 
             showScreen('screen-host-setup');
+            generateQRCode(inviteUrl);
             setupHostListeners();
         };
 
         const setupHostListeners = () => {
             unsubscribers.forEach(unsub => unsub());
             unsubscribers = [];
+
+            setupChatListener();
 
             const unsubPlayers = onSnapshot(getRoomColl('players'), (snap) => {
                 const players = [];
@@ -897,6 +1066,7 @@
                 if (prevStatus === 'lobby' && gameState.status === 'racing') startRaceAsSpectator();
                 if (gameState.lastRacerCountdown) handleFinalCountdown();
                 if (gameState.status === 'finished') showFinalResults();
+                if ((prevStatus === 'finished' || prevStatus === 'racing') && gameState.status === 'lobby') returnToLobby();
             });
             unsubscribers.push(unsubState);
         };
@@ -917,9 +1087,11 @@
             if (state.hostUid === user.uid) {
                 isHost = true;
                 window.history.pushState({}, '', `?room=${roomCode}`);
+                const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
                 document.getElementById('host-room-code').innerText = roomCode;
-                document.getElementById('host-invite-link').innerText = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
+                document.getElementById('host-invite-link').innerText = inviteUrl;
                 showScreen('screen-host-setup');
+                generateQRCode(inviteUrl);
                 setupHostListeners();
                 return;
             }
@@ -935,6 +1107,8 @@
             unsubscribers.forEach(unsub => unsub());
             unsubscribers = [];
 
+            setupChatListener();
+
             const unsubState = onSnapshot(doc(db, 'games', roomCode, 'state', 'current'), (snap) => {
                 if (!snap.exists()) return;
                 const data = snap.data();
@@ -945,6 +1119,7 @@
                 if (prevStatus === 'lobby' && gameState.status === 'racing') startRace();
                 if (gameState.lastRacerCountdown) handleFinalCountdown();
                 if (gameState.status === 'finished') showFinalResults();
+                if ((prevStatus === 'finished' || prevStatus === 'racing') && gameState.status === 'lobby') returnToLobby();
             });
             unsubscribers.push(unsubState);
 
@@ -1148,6 +1323,60 @@
                     <span class="font-bold">#${i+1} ${p.tag}</span>
                     <span class="font-mono text-cyan-400 font-bold">${p.time || 'DNF'}</span>
                 </div>`).join('');
+
+            // Show appropriate controls
+            if (isHost) {
+                document.getElementById('results-host-controls').classList.remove('hidden');
+                document.getElementById('results-player-wait').classList.add('hidden');
+            } else {
+                document.getElementById('results-host-controls').classList.add('hidden');
+                document.getElementById('results-player-wait').classList.remove('hidden');
+            }
+        };
+
+        window.playAgain = async () => {
+            if (!isHost || !roomCode) return;
+
+            // Reset all players' progress
+            const snap = await getDocs(getRoomColl('players'));
+            const resetPromises = snap.docs.map(d =>
+                updateDoc(d.ref, { progress: 0, qIdx: 0, finished: false, time: null })
+            );
+            await Promise.all(resetPromises);
+
+            // Reset game state to lobby
+            await updateDoc(doc(db, 'games', roomCode, 'state', 'current'), {
+                status: 'lobby',
+                questions: [],
+                lastRacerCountdown: null
+            });
+        };
+
+        const returnToLobby = () => {
+            // Reset local player data
+            myData.progress = 0;
+            myData.qIdx = 0;
+            myData.finished = false;
+            myData.time = null;
+
+            // Hide results controls
+            document.getElementById('results-host-controls').classList.add('hidden');
+            document.getElementById('results-player-wait').classList.add('hidden');
+            document.getElementById('final-timer-container').classList.add('hidden');
+
+            if (isHost) {
+                // Host returns to setup screen
+                const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
+                document.getElementById('host-room-code').innerText = roomCode;
+                document.getElementById('host-invite-link').innerText = inviteUrl;
+                showScreen('screen-host-setup');
+                generateQRCode(inviteUrl);
+            } else {
+                // Player returns to waiting in lobby
+                document.getElementById('player-setup-controls').classList.add('hidden');
+                document.getElementById('player-lobby-wait').classList.remove('hidden');
+                showScreen('screen-lobby');
+            }
         };
 
         // Event Listeners
