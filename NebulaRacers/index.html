@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nebula Racers: Time Trials</title>
+    <!-- Use standard Tailwind script -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap');
@@ -36,21 +37,21 @@
 
         @keyframes twinkle { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
 
-        /* The Ship container is absolute. The inner SVG is rotated to face right. */
         .ship {
             transition: left 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             filter: drop-shadow(0 0 10px var(--glow));
             display: flex;
             align-items: center;
-            height: 100%; /* Fill the lane height */
+            height: 100%;
             top: 0;
+            pointer-events: none;
         }
 
         .track-lane {
             position: relative;
             background: rgba(255, 255, 255, 0.02);
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            height: 60px; /* Fixed height for lanes */
+            height: 70px; 
             width: 100%;
         }
 
@@ -102,7 +103,7 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-2">
                                 <label class="text-[10px] text-slate-400 uppercase font-bold">Pilot Tag (3 Char)</label>
-                                <input type="text" id="player-tag" maxlength="3" value="ACE" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl font-mono text-center uppercase">
+                                <input type="text" id="player-tag" maxlength="3" value="ACE" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl font-mono text-center uppercase text-white">
                             </div>
                             <div class="space-y-2">
                                 <label class="text-[10px] text-slate-400 uppercase font-bold">Hull Color</label>
@@ -113,21 +114,21 @@
                         <div class="space-y-3">
                             <label class="text-[10px] text-slate-400 uppercase font-bold">Mission Subject</label>
                             <div id="subject-list" class="grid grid-cols-3 gap-2">
-                                <div class="subject-card glass p-2 rounded-lg text-xs selected" onclick="selectSubject('Math')">Math</div>
-                                <div class="subject-card glass p-2 rounded-lg text-xs" onclick="selectSubject('Science')">Science</div>
-                                <div class="subject-card glass p-2 rounded-lg text-xs" onclick="selectSubject('History')">History</div>
-                                <div class="subject-card glass p-2 rounded-lg text-xs" onclick="selectSubject('Literature')">Literature</div>
-                                <div class="subject-card glass p-2 rounded-lg text-xs" onclick="selectSubject('Pop Culture')">Pop Culture</div>
+                                <div class="subject-card glass p-2 rounded-lg text-xs selected" data-subj="Math">Math</div>
+                                <div class="subject-card glass p-2 rounded-lg text-xs" data-subj="Science">Science</div>
+                                <div class="subject-card glass p-2 rounded-lg text-xs" data-subj="History">History</div>
+                                <div class="subject-card glass p-2 rounded-lg text-xs" data-subj="Literature">Literature</div>
+                                <div class="subject-card glass p-2 rounded-lg text-xs" data-subj="Pop Culture">Pop Culture</div>
                             </div>
                         </div>
 
-                        <button id="btn-join" class="w-full py-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold text-xl transition-all shadow-lg">READY TO RACE</button>
+                        <button id="btn-join" class="w-full py-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold text-xl transition-all shadow-lg text-white">READY TO RACE</button>
                     </div>
 
                     <div id="lobby-wait" class="hidden mt-8 space-y-6">
                         <div id="player-list" class="flex flex-wrap gap-3 mb-6"></div>
                         <div id="host-controls" class="hidden">
-                            <button id="btn-start" class="w-full py-4 bg-purple-600 hover:bg-purple-500 rounded-xl font-bold text-xl">LAUNCH SQUADRON</button>
+                            <button id="btn-start" class="w-full py-4 bg-purple-600 hover:bg-purple-500 rounded-xl font-bold text-xl text-white">LAUNCH SQUADRON</button>
                         </div>
                         <div id="guest-wait">
                             <p class="animate-pulse text-slate-400 font-mono italic">Awaiting Squadron Leader...</p>
@@ -139,7 +140,7 @@
                 <div class="text-left border-l border-slate-700 pl-0 lg:pl-8">
                     <h2 class="text-xl font-bold mb-4 text-yellow-500">GALACTIC HALL OF FAME</h2>
                     <div id="global-leaderboard" class="space-y-2 max-h-[400px] overflow-y-auto pr-2">
-                        <p class="text-slate-500 text-sm">Loading records...</p>
+                        <p class="text-slate-500 text-sm">Initializing communication with deep space...</p>
                     </div>
                 </div>
             </div>
@@ -182,9 +183,9 @@
         <!-- Results Screen -->
         <div id="screen-results" class="hidden flex-grow flex flex-col items-center justify-center p-4">
             <div class="glass p-10 rounded-3xl w-full max-w-2xl text-center">
-                <h1 class="text-4xl font-bold mb-8 text-yellow-400">RACE COMPLETE</h1>
+                <h1 class="text-4xl font-bold mb-8 text-yellow-400">MISSION DEBRIEF</h1>
                 <div id="rankings" class="space-y-4 mb-8"></div>
-                <button onclick="location.reload()" class="px-10 py-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold">RE-ENTER ORBIT</button>
+                <button onclick="location.reload()" class="px-10 py-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold">RE-ENTRY</button>
             </div>
         </div>
     </div>
@@ -258,12 +259,16 @@
             ]
         };
 
-        const firebaseConfig = JSON.parse(__firebase_config);
+        // --- FIREBASE CONFIG ---
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "", authDomain: "", projectId: "", storageBucket: "", messagingSenderId: "", appId: ""
+        };
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nebula-racers-v4';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nebula-racers-v5';
 
+        // --- STATE ---
         let user = null;
         let selectedSubject = 'Math';
         let myData = { uid: '', tag: 'ACE', color: '#3b82f6', progress: 0, qIdx: 0, finished: false, time: null };
@@ -272,20 +277,27 @@
         let startTime = null;
         let raceClock = null;
 
+        // --- UTILS ---
         const getPublicDataDoc = (coll, id) => doc(db, 'artifacts', appId, 'public', 'data', coll, id);
         const getPublicDataColl = (coll) => collection(db, 'artifacts', appId, 'public', 'data', coll);
 
+        // --- GLOBALIZED FUNCTIONS FOR HTML ---
         window.selectSubject = (s) => {
             selectedSubject = s;
             document.querySelectorAll('.subject-card').forEach(c => {
                 c.classList.remove('selected');
-                if (c.innerText === s) c.classList.add('selected');
+                if (c.dataset.subj === s) c.classList.add('selected');
             });
         };
 
+        // Attach listeners manually instead of onclick to avoid module isolation issues
+        document.querySelectorAll('.subject-card').forEach(card => {
+            card.addEventListener('click', () => window.selectSubject(card.dataset.subj));
+        });
+
         const init = async () => {
             if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
+                await signInWithCustomToken(auth, __initial_auth_token).catch(() => signInAnonymously(auth));
             } else {
                 await signInAnonymously(auth);
             }
@@ -310,7 +322,7 @@
                 if (prevStatus === 'lobby' && gameState.status === 'racing') startRace();
                 if (gameState.lastRacerCountdown) handleFinalCountdown();
                 if (gameState.status === 'finished') showFinalResults();
-            });
+            }, (err) => console.log("Game listen error", err));
         };
 
         const listenToPlayers = () => {
@@ -328,7 +340,7 @@
                         });
                     }
                 }
-            });
+            }, (err) => console.log("Players listen error", err));
         };
 
         const listenToLeaderboard = () => {
@@ -345,8 +357,8 @@
                             <span class="font-mono text-cyan-400 font-bold">${r.time}</span>
                         </div>
                     </div>
-                `).join('') || '<p class="text-slate-500 text-sm">No records yet.</p>';
-            });
+                `).join('') || '<p class="text-slate-500 text-sm italic">Deep space scans show no records. Be the first.</p>';
+            }, (err) => console.log("Leaderboard error", err));
         };
 
         const updateLobby = (players) => {
@@ -367,8 +379,7 @@
 
         const updateTrack = (players) => {
             const track = document.getElementById('track');
-            // Rebuild lanes only if count changes to avoid flashing, or just update ships
-            if (track.children.length !== players.length + 1) { // +1 for finish line
+            if (track.children.length !== players.length + 1) {
                 track.innerHTML = '<div class="finish-line"></div>';
                 players.sort((a,b) => a.uid.localeCompare(b.uid)).forEach(p => {
                     const lane = document.createElement('div');
@@ -432,7 +443,7 @@
             grid.innerHTML = '';
             q.a.forEach((opt, i) => {
                 const btn = document.createElement('button');
-                btn.className = 'p-4 glass rounded-xl hover:bg-slate-700 transition-all text-left font-mono text-sm border border-slate-700';
+                btn.className = 'p-4 glass rounded-xl hover:bg-slate-700 transition-all text-left font-mono text-sm border border-slate-700 text-white';
                 btn.innerText = opt;
                 btn.onclick = () => submitAnswer(i);
                 grid.appendChild(btn);
@@ -447,7 +458,6 @@
                 if (myData.qIdx >= 10) {
                     myData.finished = true;
                     myData.time = document.getElementById('timer-text').innerText;
-                    // Add to leaderboard
                     await addDoc(getPublicDataColl('leaderboard'), {
                         tag: myData.tag,
                         time: myData.time,
@@ -463,7 +473,7 @@
                     time: myData.time
                 });
                 if (myData.finished) {
-                    document.getElementById('quiz-ui').innerHTML = `<div class="text-center py-4"><h2 class="text-2xl font-bold text-green-400">RACE COMPLETE</h2><p class="font-mono mt-2">${myData.time}</p></div>`;
+                    document.getElementById('quiz-ui').innerHTML = `<div class="text-center py-4"><h2 class="text-2xl font-bold text-green-400 uppercase">MISSION SUCCESS</h2><p class="font-mono mt-2 text-white">${myData.time}</p></div>`;
                 } else {
                     loadQuestion();
                 }
@@ -489,6 +499,7 @@
         };
 
         const parseTime = (t) => {
+            if (!t) return 999999;
             const parts = t.split(/[:.]/);
             return (parseInt(parts[0])*60) + parseInt(parts[1]) + (parseInt(parts[2])/100);
         };
