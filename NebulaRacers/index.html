@@ -94,15 +94,16 @@
 
         <!-- Connection Overlay -->
         <div id="connection-overlay" class="fixed inset-0 bg-slate-950 z-[100] flex flex-col items-center justify-center">
-            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-500 mb-4"></div>
-            <p class="text-cyan-500 font-mono tracking-widest animate-pulse">ESTABLISHING CLASSROOM LINK...</p>
+            <div id="loader-icon" class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-500 mb-4"></div>
+            <p id="connection-status" class="text-cyan-500 font-mono tracking-widest animate-pulse">ESTABLISHING CLASSROOM LINK...</p>
+            <button id="retry-btn" onclick="location.reload()" class="hidden mt-6 px-6 py-2 border border-cyan-500 text-cyan-500 rounded-lg hover:bg-cyan-500/10">RETRY CONNECTION</button>
         </div>
 
         <!-- Lobby Screen -->
         <div id="screen-lobby" class="flex-grow flex flex-col items-center justify-center p-4">
             <div class="glass p-8 rounded-3xl w-full max-w-5xl text-center grid grid-cols-1 lg:grid-cols-2 gap-8 shadow-2xl">
                 <div>
-                    <h1 class="text-4xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500 text-left">NEBULA RACERS</h1>
+                    <h1 class="text-4xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500 text-left uppercase">Nebula Racers</h1>
                     
                     <div id="setup-controls" class="space-y-6 text-left">
                         <div class="grid grid-cols-2 gap-4">
@@ -127,7 +128,7 @@
                             </div>
                         </div>
 
-                        <button id="btn-join" class="w-full py-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold text-xl transition-all shadow-lg text-white">ENTER HANGAR</button>
+                        <button id="btn-join" class="w-full py-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold text-xl transition-all shadow-lg text-white uppercase">Enter Hangar</button>
                     </div>
 
                     <div id="lobby-wait" class="hidden mt-8 space-y-6">
@@ -136,8 +137,8 @@
                             <div id="player-list" class="flex flex-wrap gap-2"></div>
                         </div>
                         <div id="host-controls" class="hidden space-y-2">
-                            <button id="btn-start" class="w-full py-4 bg-purple-600 hover:bg-purple-500 rounded-xl font-bold text-xl text-white shadow-xl">LAUNCH SQUADRON</button>
-                            <button id="btn-reset" class="w-full py-2 bg-slate-800 hover:bg-red-900/50 rounded-lg text-xs font-bold text-slate-500 hover:text-white transition-colors">RESET CLASSROOM DATA</button>
+                            <button id="btn-start" class="w-full py-4 bg-purple-600 hover:bg-purple-500 rounded-xl font-bold text-xl text-white shadow-xl uppercase">Launch Squadron</button>
+                            <button id="btn-reset" class="w-full py-2 bg-slate-800 hover:bg-red-900/50 rounded-lg text-xs font-bold text-slate-500 hover:text-white transition-colors uppercase">Reset Classroom</button>
                         </div>
                         <div id="guest-wait">
                             <p class="animate-pulse text-cyan-400 font-mono italic">Awaiting Squadron Leader to Launch...</p>
@@ -269,7 +270,6 @@
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'nebula-racers-v1';
         let db, auth;
-
         let user = null;
         let selectedSubject = 'Math';
         let myData = { uid: '', tag: 'ACE', color: '#3b82f6', progress: 0, qIdx: 0, finished: false, time: null, isHost: false };
@@ -278,7 +278,6 @@
         let startTime = null;
         let raceClock = null;
 
-        // Path Helpers
         const getPublicDataDoc = (coll, id) => doc(db, 'artifacts', appId, 'public', 'data', coll, id);
         const getPublicDataColl = (coll) => collection(db, 'artifacts', appId, 'public', 'data', coll);
 
@@ -291,15 +290,24 @@
         };
 
         const init = async () => {
-            const configWait = setInterval(async () => {
-                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-                    clearInterval(configWait);
-                    const config = JSON.parse(__firebase_config);
-                    const app = initializeApp(config);
-                    auth = getAuth(app);
-                    db = getFirestore(app);
+            const timeout = setTimeout(() => {
+                document.getElementById('connection-status').innerText = "LINK FAILED. PLEASE REFRESH.";
+                document.getElementById('connection-status').classList.remove('animate-pulse');
+                document.getElementById('retry-btn').classList.remove('hidden');
+                document.getElementById('loader-icon').classList.add('hidden');
+            }, 8000);
 
+            const configWait = setInterval(async () => {
+                if (typeof __firebase_config !== 'undefined') {
+                    clearInterval(configWait);
+                    clearTimeout(timeout);
+                    
                     try {
+                        const config = JSON.parse(__firebase_config);
+                        const app = initializeApp(config);
+                        auth = getAuth(app);
+                        db = getFirestore(app);
+
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await signInWithCustomToken(auth, __initial_auth_token);
                         } else {
@@ -310,48 +318,44 @@
                             if (u) {
                                 user = u;
                                 myData.uid = u.uid;
-                                document.getElementById('connection-overlay').style.display = 'none';
+                                // Fast-track session check
+                                try {
+                                    const gDoc = await getDoc(getPublicDataDoc('sessions', 'game'));
+                                    if (!gDoc.exists()) {
+                                        await setDoc(getPublicDataDoc('sessions', 'game'), gameState);
+                                    }
+                                } catch (e) { /* silent fail, listeners will retry */ }
                                 
-                                // FORCE create the game doc if it doesn't exist
-                                const gameDoc = await getDoc(getPublicDataDoc('sessions', 'game'));
-                                if (!gameDoc.exists()) {
-                                    await setDoc(getPublicDataDoc('sessions', 'game'), {
-                                        status: 'lobby',
-                                        subject: 'Math',
-                                        questions: [],
-                                        lastRacerCountdown: null
-                                    });
-                                }
+                                document.getElementById('connection-overlay').style.display = 'none';
                                 setupListeners();
                             }
                         });
-                    } catch (e) { console.error(e); }
+                    } catch (e) {
+                        console.error("Firebase Init Error:", e);
+                    }
                 }
-            }, 100);
+            }, 200);
         };
 
         const setupListeners = () => {
-            // Listen for global game state
             onSnapshot(getPublicDataDoc('sessions', 'game'), (snap) => {
                 if (!snap.exists()) return;
                 const data = snap.data();
                 const prevStatus = gameState.status;
                 gameState = data;
-                activeQuestions = gameState.questions;
+                activeQuestions = gameState.questions || [];
                 
                 if (prevStatus === 'lobby' && gameState.status === 'racing') startRace();
                 if (gameState.lastRacerCountdown) handleFinalCountdown();
                 if (gameState.status === 'finished') showFinalResults();
-            }, (err) => console.log("State Error:", err));
+            }, (err) => console.log("State Sync Error:", err));
 
-            // Listen for all players in this classroom
             onSnapshot(getPublicDataColl('players'), (snap) => {
                 const players = [];
                 snap.forEach(d => players.push(d.data()));
                 updateLobby(players);
                 if (gameState.status === 'racing') updateTrack(players);
                 
-                // Host logic for 30s finish timer
                 if (gameState.status === 'racing' && myData.isHost) {
                     const finishers = players.filter(p => p.finished).length;
                     if (finishers > 0 && players.length > 1 && !gameState.lastRacerCountdown) {
@@ -360,9 +364,8 @@
                         });
                     }
                 }
-            }, (err) => console.log("Player Error:", err));
+            });
 
-            // Leaderboard listener
             onSnapshot(getPublicDataColl('leaderboard'), (snap) => {
                 const list = [];
                 snap.forEach(d => list.push(d.data()));
@@ -370,10 +373,10 @@
                 const container = document.getElementById('global-leaderboard');
                 container.innerHTML = sorted.map((r, i) => `
                     <div class="flex justify-between p-2 glass rounded-lg border-l-2 mb-1" style="border-color: ${r.color}">
-                        <span class="font-bold text-slate-300 text-xs">#${i+1} ${r.tag}</span>
-                        <div class="flex gap-4">
-                            <span class="text-[9px] text-slate-500 uppercase">${r.subject}</span>
-                            <span class="font-mono text-cyan-400 font-bold text-xs">${r.time}</span>
+                        <span class="font-bold text-slate-300 text-[10px]">#${i+1} ${r.tag}</span>
+                        <div class="flex gap-3">
+                            <span class="text-[8px] text-slate-500 uppercase">${r.subject}</span>
+                            <span class="font-mono text-cyan-400 font-bold text-[10px]">${r.time}</span>
                         </div>
                     </div>
                 `).join('') || '<p class="text-slate-500 text-sm italic text-center p-4">HALL OF FAME EMPTY.</p>';
@@ -388,7 +391,6 @@
                 </div>
             `).join('');
 
-            // Identify the Host (oldest player in the lobby)
             const sorted = players.sort((a,b) => (a.joinedAt || 0) - (b.joinedAt || 0));
             if (sorted[0]?.uid === user.uid) {
                 myData.isHost = true;
@@ -403,7 +405,6 @@
 
         const updateTrack = (players) => {
             const track = document.getElementById('track');
-            // Re-render lanes if player count changes
             if (track.querySelectorAll('.track-lane').length !== players.length) {
                 track.innerHTML = '<div class="finish-line"></div>';
                 players.sort((a,b) => a.uid.localeCompare(b.uid)).forEach(p => {
@@ -423,25 +424,20 @@
                     ship.className = 'ship absolute';
                     lane.appendChild(ship);
                 }
-                
                 const finalPos = p.finished ? 89 : (p.progress / 100) * 80;
                 ship.style.left = `calc(${finalPos}% + 10px)`;
                 ship.style.setProperty('--glow', p.color);
-                
                 const glow = p.finished ? 'finished-glow' : '';
-                const fill = p.finished ? '#22c55e' : p.color;
-
                 ship.innerHTML = `
                     <div class="flex items-center gap-2 ${glow}">
-                        <svg width="34" height="34" viewBox="0 0 24 24" fill="${fill}" style="transform: rotate(90deg)">
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="${p.finished ? '#22c55e' : p.color}" style="transform: rotate(90deg)">
                             <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71L12 2z"/>
                         </svg>
                         <div class="flex flex-col leading-none">
                             <span class="text-[8px] font-bold" style="color: ${p.color}">${p.tag}</span>
                             ${p.time ? `<span class="text-[8px] font-mono text-green-400 font-bold">${p.time}</span>` : ''}
                         </div>
-                    </div>
-                `;
+                    </div>`;
             });
         };
 
@@ -452,18 +448,16 @@
             startTime = Date.now();
             raceClock = setInterval(() => {
                 if (myData.finished) return;
-                const diff = Date.now() - startTime;
-                document.getElementById('timer-text').innerText = formatMillis(diff);
+                document.getElementById('timer-text').innerText = formatMillis(Date.now() - startTime);
             }, 50);
             loadQuestion();
         };
 
         const loadQuestion = () => {
-            if (myData.finished) return;
+            if (myData.finished || !activeQuestions[myData.qIdx]) return;
             const q = activeQuestions[myData.qIdx];
             document.getElementById('question-count').innerText = `${myData.qIdx + 1} / 10`;
             document.getElementById('question-text').innerText = q.q;
-            
             const grid = document.getElementById('options-grid');
             grid.innerHTML = '';
             q.a.forEach((opt, i) => {
@@ -484,28 +478,18 @@
                     myData.finished = true;
                     myData.time = document.getElementById('timer-text').innerText;
                     await addDoc(getPublicDataColl('leaderboard'), {
-                        tag: myData.tag,
-                        time: myData.time,
-                        subject: gameState.subject,
-                        color: myData.color,
-                        timestamp: Date.now()
+                        tag: myData.tag, time: myData.time, subject: gameState.subject,
+                        color: myData.color, timestamp: Date.now()
                     });
                 }
-                // Save progress to database for everyone to see
                 await updateDoc(getPublicDataDoc('players', user.uid), {
-                    progress: myData.progress,
-                    qIdx: myData.qIdx,
-                    finished: myData.finished,
-                    time: myData.time
+                    progress: myData.progress, qIdx: myData.qIdx,
+                    finished: myData.finished, time: myData.time
                 });
-
                 if (myData.finished) {
-                    document.getElementById('quiz-ui').innerHTML = `<div class="text-center py-4"><h2 class="text-2xl font-bold text-green-400 uppercase">MISSION SUCCESS</h2><p class="font-mono mt-2 text-white">${myData.time}</p></div>`;
-                } else {
-                    loadQuestion();
-                }
+                    document.getElementById('quiz-ui').innerHTML = `<div class="text-center py-4"><h2 class="text-2xl font-bold text-green-400">MISSION SUCCESS</h2><p class="font-mono mt-2">${myData.time}</p></div>`;
+                } else loadQuestion();
             } else {
-                // Wrong Answer Penalty
                 document.getElementById('penalty-ui').classList.remove('hidden');
                 let count = 5.0;
                 const interval = setInterval(() => {
@@ -566,19 +550,14 @@
                 <div class="glass p-4 rounded-xl flex justify-between items-center border-l-4" style="border-color: ${p.color}">
                     <span class="font-bold">#${i+1} ${p.tag}</span>
                     <span class="font-mono text-cyan-400 font-bold">${p.time || 'DNF'}</span>
-                </div>
-            `).join('');
+                </div>`).join('');
         };
 
-        // --- BUTTONS ---
         document.getElementById('btn-join').onclick = async () => {
             if (!user) return;
             myData.tag = document.getElementById('player-tag').value.toUpperCase().slice(0,3) || 'ACE';
             myData.color = document.getElementById('player-color').value;
-            await setDoc(getPublicDataDoc('players', user.uid), {
-                ...myData,
-                joinedAt: Date.now()
-            });
+            await setDoc(getPublicDataDoc('players', user.uid), { ...myData, joinedAt: Date.now() });
             document.getElementById('setup-controls').classList.add('hidden');
             document.getElementById('lobby-wait').classList.remove('hidden');
         };
@@ -587,24 +566,15 @@
             if (!user) return;
             const qPool = QUESTIONS_DB[selectedSubject].sort(() => Math.random() - 0.5);
             await updateDoc(getPublicDataDoc('sessions', 'game'), {
-                status: 'racing',
-                subject: selectedSubject,
-                questions: qPool,
-                lastRacerCountdown: null
+                status: 'racing', subject: selectedSubject, questions: qPool, lastRacerCountdown: null
             });
         };
 
         document.getElementById('btn-reset').onclick = async () => {
-            if (!user || !confirm("Clear all racers and reset the classroom?")) return;
+            if (!user || !confirm("Clear all racers?")) return;
             const snap = await getDocs(getPublicDataColl('players'));
-            const deletions = snap.docs.map(d => deleteDoc(d.ref));
-            await Promise.all(deletions);
-            await updateDoc(getPublicDataDoc('sessions', 'game'), {
-                status: 'lobby',
-                subject: 'Math',
-                questions: [],
-                lastRacerCountdown: null
-            });
+            await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
+            await updateDoc(getPublicDataDoc('sessions', 'game'), { status: 'lobby', questions: [], lastRacerCountdown: null });
             location.reload();
         };
 
@@ -612,7 +582,7 @@
 
         // Background FX
         const starsBox = document.getElementById('stars');
-        for (let i = 0; i < 150; i++) {
+        for (let i = 0; i < 100; i++) {
             const s = document.createElement('div');
             s.className = 'star';
             s.style.left = Math.random() * 100 + '%';
