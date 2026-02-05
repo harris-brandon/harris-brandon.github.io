@@ -202,7 +202,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, updateDoc, getDocs, onSnapshot, collection, query, addDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const QUESTIONS_DB = {
@@ -268,7 +268,16 @@
             ]
         };
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nebula-racers-v1';
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAXgfPgLjE0OVbyc8is-Lnieyp_yAzvS90",
+            authDomain: "nebula-racers-classroom.firebaseapp.com",
+            projectId: "nebula-racers-classroom",
+            storageBucket: "nebula-racers-classroom.firebasestorage.app",
+            messagingSenderId: "782477105805",
+            appId: "1:782477105805:web:6c092112543be5d6eb20c4"
+        };
+
         let db, auth;
         let user = null;
         let selectedSubject = 'Math';
@@ -278,8 +287,8 @@
         let startTime = null;
         let raceClock = null;
 
-        const getPublicDataDoc = (coll, id) => doc(db, 'artifacts', appId, 'public', 'data', coll, id);
-        const getPublicDataColl = (coll) => collection(db, 'artifacts', appId, 'public', 'data', coll);
+        const getDoc_ = (coll, id) => doc(db, coll, id);
+        const getColl_ = (coll) => collection(db, coll);
 
         window.selectSubject = (s) => {
             selectedSubject = s;
@@ -290,55 +299,39 @@
         };
 
         const init = async () => {
-            const timeout = setTimeout(() => {
-                document.getElementById('connection-status').innerText = "LINK FAILED. PLEASE REFRESH.";
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                await signInAnonymously(auth);
+
+                onAuthStateChanged(auth, async (u) => {
+                    if (u) {
+                        user = u;
+                        myData.uid = u.uid;
+                        try {
+                            const gDoc = await getDoc(getDoc_('sessions', 'game'));
+                            if (!gDoc.exists()) {
+                                await setDoc(getDoc_('sessions', 'game'), gameState);
+                            }
+                        } catch (e) { console.log("Session init:", e); }
+
+                        document.getElementById('connection-overlay').style.display = 'none';
+                        setupListeners();
+                    }
+                });
+            } catch (e) {
+                console.error("Firebase Init Error:", e);
+                document.getElementById('connection-status').innerText = "CONNECTION FAILED. CHECK CONSOLE.";
                 document.getElementById('connection-status').classList.remove('animate-pulse');
                 document.getElementById('retry-btn').classList.remove('hidden');
                 document.getElementById('loader-icon').classList.add('hidden');
-            }, 8000);
-
-            const configWait = setInterval(async () => {
-                if (typeof __firebase_config !== 'undefined') {
-                    clearInterval(configWait);
-                    clearTimeout(timeout);
-                    
-                    try {
-                        const config = JSON.parse(__firebase_config);
-                        const app = initializeApp(config);
-                        auth = getAuth(app);
-                        db = getFirestore(app);
-
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        } else {
-                            await signInAnonymously(auth);
-                        }
-                        
-                        onAuthStateChanged(auth, async (u) => {
-                            if (u) {
-                                user = u;
-                                myData.uid = u.uid;
-                                // Fast-track session check
-                                try {
-                                    const gDoc = await getDoc(getPublicDataDoc('sessions', 'game'));
-                                    if (!gDoc.exists()) {
-                                        await setDoc(getPublicDataDoc('sessions', 'game'), gameState);
-                                    }
-                                } catch (e) { /* silent fail, listeners will retry */ }
-                                
-                                document.getElementById('connection-overlay').style.display = 'none';
-                                setupListeners();
-                            }
-                        });
-                    } catch (e) {
-                        console.error("Firebase Init Error:", e);
-                    }
-                }
-            }, 200);
+            }
         };
 
         const setupListeners = () => {
-            onSnapshot(getPublicDataDoc('sessions', 'game'), (snap) => {
+            onSnapshot(getDoc_('sessions', 'game'), (snap) => {
                 if (!snap.exists()) return;
                 const data = snap.data();
                 const prevStatus = gameState.status;
@@ -350,7 +343,7 @@
                 if (gameState.status === 'finished') showFinalResults();
             }, (err) => console.log("State Sync Error:", err));
 
-            onSnapshot(getPublicDataColl('players'), (snap) => {
+            onSnapshot(getColl_('players'), (snap) => {
                 const players = [];
                 snap.forEach(d => players.push(d.data()));
                 updateLobby(players);
@@ -359,14 +352,14 @@
                 if (gameState.status === 'racing' && myData.isHost) {
                     const finishers = players.filter(p => p.finished).length;
                     if (finishers > 0 && players.length > 1 && !gameState.lastRacerCountdown) {
-                        updateDoc(getPublicDataDoc('sessions', 'game'), { 
+                        updateDoc(getDoc_('sessions', 'game'), { 
                             lastRacerCountdown: Date.now() + 30000 
                         });
                     }
                 }
             });
 
-            onSnapshot(getPublicDataColl('leaderboard'), (snap) => {
+            onSnapshot(getColl_('leaderboard'), (snap) => {
                 const list = [];
                 snap.forEach(d => list.push(d.data()));
                 const sorted = list.sort((a,b) => parseTime(a.time) - parseTime(b.time)).slice(0, 15);
@@ -477,12 +470,12 @@
                 if (myData.qIdx >= 10) {
                     myData.finished = true;
                     myData.time = document.getElementById('timer-text').innerText;
-                    await addDoc(getPublicDataColl('leaderboard'), {
+                    await addDoc(getColl_('leaderboard'), {
                         tag: myData.tag, time: myData.time, subject: gameState.subject,
                         color: myData.color, timestamp: Date.now()
                     });
                 }
-                await updateDoc(getPublicDataDoc('players', user.uid), {
+                await updateDoc(getDoc_('players', user.uid), {
                     progress: myData.progress, qIdx: myData.qIdx,
                     finished: myData.finished, time: myData.time
                 });
@@ -524,7 +517,7 @@
                 const diff = gameState.lastRacerCountdown - Date.now();
                 if (diff <= 0) {
                     timer.innerText = "0s";
-                    if (myData.isHost) updateDoc(getPublicDataDoc('sessions', 'game'), { status: 'finished' });
+                    if (myData.isHost) updateDoc(getDoc_('sessions', 'game'), { status: 'finished' });
                     return;
                 }
                 timer.innerText = Math.ceil(diff / 1000) + 's';
@@ -537,7 +530,7 @@
             clearInterval(raceClock);
             document.getElementById('screen-race').classList.add('hidden');
             document.getElementById('screen-results').classList.remove('hidden');
-            const snap = await getDocs(getPublicDataColl('players'));
+            const snap = await getDocs(getColl_('players'));
             const players = [];
             snap.forEach(d => players.push(d.data()));
             const sorted = players.sort((a,b) => {
@@ -557,7 +550,7 @@
             if (!user) return;
             myData.tag = document.getElementById('player-tag').value.toUpperCase().slice(0,3) || 'ACE';
             myData.color = document.getElementById('player-color').value;
-            await setDoc(getPublicDataDoc('players', user.uid), { ...myData, joinedAt: Date.now() });
+            await setDoc(getDoc_('players', user.uid), { ...myData, joinedAt: Date.now() });
             document.getElementById('setup-controls').classList.add('hidden');
             document.getElementById('lobby-wait').classList.remove('hidden');
         };
@@ -565,16 +558,16 @@
         document.getElementById('btn-start').onclick = async () => {
             if (!user) return;
             const qPool = QUESTIONS_DB[selectedSubject].sort(() => Math.random() - 0.5);
-            await updateDoc(getPublicDataDoc('sessions', 'game'), {
+            await updateDoc(getDoc_('sessions', 'game'), {
                 status: 'racing', subject: selectedSubject, questions: qPool, lastRacerCountdown: null
             });
         };
 
         document.getElementById('btn-reset').onclick = async () => {
             if (!user || !confirm("Clear all racers?")) return;
-            const snap = await getDocs(getPublicDataColl('players'));
+            const snap = await getDocs(getColl_('players'));
             await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
-            await updateDoc(getPublicDataDoc('sessions', 'game'), { status: 'lobby', questions: [], lastRacerCountdown: null });
+            await updateDoc(getDoc_('sessions', 'game'), { status: 'lobby', questions: [], lastRacerCountdown: null });
             location.reload();
         };
 
