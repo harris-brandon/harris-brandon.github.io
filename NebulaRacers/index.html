@@ -259,14 +259,21 @@
             ]
         };
 
-        // --- FIREBASE CONFIG ---
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "", authDomain: "", projectId: "", storageBucket: "", messagingSenderId: "", appId: ""
-        };
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+        // --- FIREBASE CONFIG & INIT ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'nebula-racers-v5';
+        let db, auth;
+
+        // Exponential backoff helper for auth/init
+        async function withRetry(fn, retries = 5) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    return await fn();
+                } catch (err) {
+                    if (i === retries - 1) throw err;
+                    await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
+                }
+            }
+        }
 
         // --- STATE ---
         let user = null;
@@ -296,11 +303,25 @@
         });
 
         const init = async () => {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token).catch(() => signInAnonymously(auth));
-            } else {
-                await signInAnonymously(auth);
+            // Check if firebase config exists before trying to initialize
+            if (typeof __firebase_config === 'undefined' || !__firebase_config) {
+                console.log("Firebase config not available yet...");
+                return;
             }
+
+            const firebaseConfig = JSON.parse(__firebase_config);
+            const firebaseApp = initializeApp(firebaseConfig);
+            auth = getAuth(firebaseApp);
+            db = getFirestore(firebaseApp);
+
+            await withRetry(async () => {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            });
+
             onAuthStateChanged(auth, u => {
                 if (u) {
                     user = u;
@@ -322,7 +343,9 @@
                 if (prevStatus === 'lobby' && gameState.status === 'racing') startRace();
                 if (gameState.lastRacerCountdown) handleFinalCountdown();
                 if (gameState.status === 'finished') showFinalResults();
-            }, (err) => console.log("Game listen error", err));
+            }, (err) => {
+                // Silent failure or handle error UI if needed
+            });
         };
 
         const listenToPlayers = () => {
@@ -340,7 +363,7 @@
                         });
                     }
                 }
-            }, (err) => console.log("Players listen error", err));
+            }, (err) => {});
         };
 
         const listenToLeaderboard = () => {
@@ -358,7 +381,7 @@
                         </div>
                     </div>
                 `).join('') || '<p class="text-slate-500 text-sm italic">Deep space scans show no records. Be the first.</p>';
-            }, (err) => console.log("Leaderboard error", err));
+            }, (err) => {});
         };
 
         const updateLobby = (players) => {
@@ -451,6 +474,7 @@
         };
 
         const submitAnswer = async (idx) => {
+            if (!user) return;
             const q = activeQuestions[myData.qIdx];
             if (idx === q.c) {
                 myData.qIdx++;
@@ -543,6 +567,7 @@
         };
 
         document.getElementById('btn-join').onclick = async () => {
+            if (!user) return;
             myData.tag = document.getElementById('player-tag').value.toUpperCase().slice(0,3) || 'ACE';
             myData.color = document.getElementById('player-color').value;
             await setDoc(getPublicDataDoc('players', user.uid), {
@@ -554,6 +579,7 @@
         };
 
         document.getElementById('btn-start').onclick = async () => {
+            if (!user) return;
             const qPool = QUESTIONS_DB[selectedSubject].sort(() => Math.random() - 0.5);
             await setDoc(getPublicDataDoc('sessions', 'game'), {
                 status: 'racing',
@@ -563,8 +589,10 @@
             });
         };
 
-        init();
+        // Initialize on load
+        window.onload = init;
 
+        // Background stars
         const starsBox = document.getElementById('stars');
         for (let i = 0; i < 150; i++) {
             const s = document.createElement('div');
